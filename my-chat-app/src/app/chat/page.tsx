@@ -10,6 +10,9 @@ import {
   useToast,
 } from '@chakra-ui/react';
 import { Spinner } from '@chakra-ui/react';
+import React from "react";
+import Markdown from "react-markdown";
+
 
 export default function ChatPage() {
   const [theInput, setTheInput] = useState('');
@@ -99,10 +102,12 @@ export default function ChatPage() {
               borderRadius="md"
               padding="3"
               alignSelf={message.role === 'assistant' ? 'flex-start' : 'flex-end'}
-              maxWidth="80%" // Makes sure messages don't stretch too wide
-              marginX="4" // Adds some horizontal spacing
+              maxWidth="80%" 
+              marginX="4"
             >
-              {message.content}
+              <Markdown>
+                {message.content}
+              </Markdown>
             </Box>
           ))}
 
