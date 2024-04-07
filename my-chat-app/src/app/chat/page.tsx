@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Box,
   Button,
@@ -23,6 +23,39 @@ export default function ChatPage() {
       content: 'Hey, this is StudyBuddyBot! How can I help you today?',
     },
   ]);
+  const [isShowNotification, setIsShowNotification] = useState(false);
+  const [popupMessage, setPopupMessage] = useState('');
+
+  useEffect(() => {
+    const checkInInterval = setInterval(() => {
+      setIsShowNotification(true); // Directly trigger the popup
+    }, 25 * 60 * 1000); 
+
+    return () => clearInterval(checkInInterval);
+  }, []);
+
+  const callServerSideOpenAIEndpointForPopup = async () => {
+    setIsLoading(true); 
+    try {
+      const response = await fetch('/api', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ messages: [{ role: "user", content: "Generate a check-in message" }] }),
+      });
+
+      const data = await response.json();
+      const { output } = data;
+
+      setPopupMessage(output.content); // Update the state for popup message
+
+    } catch (error) {
+      // ... error handling
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const toast = useToast();
 
@@ -64,6 +97,11 @@ export default function ChatPage() {
       callServerSideOpenAIEndpoint();
     }
   };
+  useEffect(() => {
+    if (isShowNotification) {
+        callServerSideOpenAIEndpointForPopup();
+    }
+}, [isShowNotification]); 
 
   return (
     <Flex
@@ -142,6 +180,16 @@ export default function ChatPage() {
           Send
         </Button>
       </Flex>
+      {/* Place the popup JSX right here */}
+      {isShowNotification && (
+      <Box position="absolute" top="50%" left="50%" transform="translate(-50%, -50%)" bg="gray.200" p="4" rounded="lg">
+        {isLoading
+          ? <Spinner color="blue.500" thickness="4px" speed="0.65s" emptyColor="gray.200" size="xl" />
+          : <Text fontWeight="bold">{popupMessage}</Text> // Display the dynamic message
+        }
+        <Button onClick={() => setIsShowNotification(false)} colorScheme="blue">Okay!</Button>
+      </Box>
+    )} 
     </Flex>
   );
   
