@@ -9,9 +9,10 @@ import {
   Flex,
   useToast,
 } from '@chakra-ui/react';
-import { Spinner, Image } from '@chakra-ui/react';
+import { Spinner, Image, AspectRatio, Link} from '@chakra-ui/react';
 import React from "react";
 import Markdown from "react-markdown";
+import { VideoComponent } from './video';
 
 
 export default function ChatPage() {
@@ -31,8 +32,8 @@ export default function ChatPage() {
 
   useEffect(() => {
     const checkInInterval = setInterval(() => {
-      setIsShowNotification(true); // Directly trigger the popup
-    }, 3 * 60 * 1000); 
+      setIsShowNotification(true);
+    }, 25 * 60 * 1000); 
 
     return () => clearInterval(checkInInterval);
   }, []);
@@ -40,7 +41,7 @@ export default function ChatPage() {
   useEffect(() => {
     if ('webkitSpeechRecognition' in window) {
         const recognition = new window.webkitSpeechRecognition();
-        recognition.continuous = false; // Change this to false for single-shot recognition
+        recognition.continuous = false;
         recognition.interimResults = true;
         recognition.lang = 'en-US';
 
@@ -57,8 +58,8 @@ export default function ChatPage() {
         };
 
         recognition.onend = () => {
-            setIsListening(false); // Automatically set listening to false when recognition ends
-            setIsLoading(false); // Ensure loading is stopped when recognition ends
+            setIsListening(false);
+            setIsLoading(false);
         };
 
         speechRecognition.current = recognition;
@@ -101,10 +102,9 @@ const toggleListening = () => {
       const data = await response.json();
       const { output } = data;
 
-      setPopupMessage(output.content); // Update the state for popup message
+      setPopupMessage(output.content);
 
     } catch (error) {
-      // ... error handling
     } finally {
       setIsLoading(false);
     }
@@ -117,7 +117,7 @@ const toggleListening = () => {
     const userMessage = { role: 'user', content: theInput };
     setMessages([...messages, userMessage]);
     setTheInput('');
-
+  
     try {
       const response = await fetch('/api', {
         method: 'POST',
@@ -126,12 +126,11 @@ const toggleListening = () => {
         },
         body: JSON.stringify({ messages: [...messages, userMessage] }),
       });
-
+  
       const data = await response.json();
       const { output } = data;
-
-      setMessages((prevMessages) => [...prevMessages, output]);
-      createTalk(output.content);
+      await createTalk(output.content, output);
+  
     } catch (error) {
       toast({
         title: 'Error',
@@ -144,53 +143,53 @@ const toggleListening = () => {
       setIsLoading(false);
     }
   };
-
+  
+  const createTalk = async (text: any, output: any) => {
+    setIsLoading(true);
+    try {
+      const response = await fetch('https://api.d-id.com/talks', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Basic YmFycnlhbGxlbmZsYXNoNDI2QGdtYWlsLmNvbQ:RgvKOj-xODto6zpnr_jtv'
+        },
+        body: JSON.stringify({
+          script: {
+            type: "text",
+            input: text
+          },
+          source_url: "https://i.imgur.com/aGzaVYy.jpeg",
+          webhook: "https://host.domain.tld/to/webhook" 
+        })
+      });
+  
+      const data = await response.json();
+      console.log("got the talk created");
+      if (data && data.id) {
+        await getTalk(data.id);
+      }
+      setMessages((prevMessages) => [...prevMessages, output]);
+    } catch (error) {
+      console.error('Error creating talk:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
   const handleSubmit = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
       callServerSideOpenAIEndpoint();
     }
   };
+  
   useEffect(() => {
     if (isShowNotification) {
         callServerSideOpenAIEndpointForPopup();
     }
 }, [isShowNotification]); 
 
-const createTalk = async (text: any) => {
-  setIsLoading(true);
-  try {
-    const response = await fetch('https://api.d-id.com/talks', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Basic YmFycnlhbGxlbmZsYXNoNDI2QGdtYWlsLmNvbQ:RgvKOj-xODto6zpnr_jtv'
-      },
-      body: JSON.stringify({
-        script: {
-          type: "text",
-          input: text
-        },
-        source_url: "https://i.imgur.com/aGzaVYy.jpeg",
-        webhook: "https://host.domain.tld/to/webhook" 
-      })
-    });
-
-    const data = await response.json();
-    console.log("got the talk created");
-    if (data && data.id) {
-      getTalk(data.id);
-    }
-  } catch (error) {
-    console.error('Error creating talk:', error);
-  } finally {
-    setIsLoading(false);
-  }
-};
-
-
 const getTalk = async (id: any) => {
-  setIsLoading(true); // Set loading to true while processing
+  setIsLoading(true);
   const checkStatus = async () => {
       try {
         const response = await fetch(`https://api.d-id.com/talks/${id}`, {
@@ -203,13 +202,13 @@ const getTalk = async (id: any) => {
           const data = await response.json();
           console.log(data)
           if (data.status === 'done') {
-              clearInterval(intervalId); // Stop polling when status is 'done'
+              clearInterval(intervalId);
               console.log(data.result_url);
-              setVideoUrl(data.result_url); // Set the video URL for display
-              setIsLoading(false); // Set loading to false after fetching the URL
+              setVideoUrl(data.result_url); 
+              setIsLoading(false);
           } else if (data.status === 'failed') {
-              clearInterval(intervalId); // Stop polling on failure
-              setIsLoading(false); // Ensure loading state is reset on failure
+              clearInterval(intervalId); 
+              setIsLoading(false); 
               toast({
                   title: 'Video Processing Failed',
                   description: 'There was a problem processing the video.',
@@ -218,9 +217,8 @@ const getTalk = async (id: any) => {
                   isClosable: true,
               });
           }
-          // If the status is still 'started', do nothing, let it loop continue
       } catch (error) {
-          clearInterval(intervalId); // Stop polling on error
+          clearInterval(intervalId);
           setIsLoading(false);
           console.error('Error fetching talk:', error);
           toast({
@@ -232,8 +230,6 @@ const getTalk = async (id: any) => {
           });
       }
   };
-
-  // Start polling every 5 seconds to check the status
   const intervalId = setInterval(checkStatus, 5000);
 };
 
@@ -245,37 +241,20 @@ return (
     width="full"
     background="gray.100"
   >
-    {/* Header Section */}
     <Box width="full" textAlign="center" mb="4">
       <Text fontSize="4xl" fontWeight="bold">Study Buddy Bot</Text>
       <Text fontSize="md" color="gray.600">
         Ask any questions you want to learn about. Follow the instructions below.
       </Text>
-      {/* Additional instructions text can go here */}
     </Box>
-
-    {/* Main Content Section */}
     <Flex width="full" justify="space-between" align="start">
-
-      {/* Video Section */}
       <Box flex="1" textAlign="center" mr="8">
         {videoUrl ? (
           <video width="100%" controls src={videoUrl} autoPlay loop />
         ) : (
-          
-            <Image
-              src="https://i.imgur.com/aGzaVYy.jpeg"
-              alt="Video placeholder"
-              fit="cover"
-              align="center"
-              w="60%"
-              h="auto"
-              ml={100}
-            />
+          <VideoComponent></VideoComponent>
         )}
       </Box>
-
-      {/* Chat Section */}
       <VStack flexBasis="50%" spacing="4" maxHeight="70vh" overflowY="auto" bg="gray.600" rounded="xl" padding="4" boxShadow="xl">
         {messages.map((message, index) => (
           <Box
@@ -294,8 +273,6 @@ return (
         {isLoading && (
           <Spinner color="blue.500" thickness="4px" speed="0.65s" emptyColor="gray.200" size="xl" />
         )}
-
-        {/* Input Section */}
         <Flex width="full" mt="5">
           <Button
             onClick={toggleListening}
@@ -327,8 +304,6 @@ return (
       </VStack>
 
     </Flex>
-
-    {/* Notification Popup */}
     {isShowNotification && (
       <Box position="absolute" top="50%" left="50%" transform="translate(-50%, -50%)" bg="gray.200" p="4" rounded="lg">
         {isLoading
